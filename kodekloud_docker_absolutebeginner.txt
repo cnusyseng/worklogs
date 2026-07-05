@@ -236,10 +236,900 @@ Image Tages
 ------------
 need to start
 
+$ docker images
+
+$ docker rmi redis:7.4
+# in this 7.4 is tag for redis
 
 
+Interactive mode
+---------------------
+$ docker run kodekloud/simple-prompt-docker
+
+$ docker run -i kodekloud/simple-prompt-docker
+# i is for interactive prompt
+
+-i along (stdin, no TTY)
+pipe data into the container
+$ cat schema.sql | docker run -i postgres psql -U postgres -d mydb
+# -it here: cannot attach stdin to a TTY-enabled container
 
 
+-t along (TTY, no STDIN)
+Colored output/progress bars
+
+$ docker run -t alpine ls --color=always /
+program detects a terminal -> emits colors and pretty formatting
+
+Port Mapping
+--------------
+$ docker run kodekloud/webapp
+* Running on http://0.0.0.0:5000/
+(Press CTRL+C to quit)
+
+$ docker run -p 80:5000 kodekloud/webapp
+# here we are mapping port 80 with port 5000 on container
+
+$ docker run -p 8000:5000 kodekloud/webapp
+
+$ docker run -p 3306:3306 mysql
+
+$ docker run -p 8306:3306 mysql
+
+Volummes and Bind Mounts
+--------------------------
+# docker run mysql
+
+# docker stop mysql
 
 
+-v short . syntax
+single colon-separated string
+$ docker run -v /opt/datadir:/var/lib/mysql mysql
+
+-- mount . explicit syntax
+key=value pairs
+$ docker run --mount type=bind,source=/opt/datadir,target=/var/lib/mysql mysql
+
+Inspect and Logs
+-------------------
+$ docker inspect blissful_hopper
+
+$ docker run -d kodekloud/webapp
+
+$ docker logs 35505f7810d1
+
+Lab: Docker Run commands
+------------------------
+Let us first inspect the environment. How many containers are running on this host?
+$ docker ps -a
+
+What is the image used by the container?
+$ docker ps -a
+
+How many unique ports are published on this container (count each port only once even if it appears for IPv4 and IPv6)?
+$ docker ps -a
+
+Which of the following ports are mapped on the container side (i.e., exposed inside the container)?
+$ docker ps -a
+
+Which of the below ports are published on Host?
+$ docker ps -a
+
+Run an instance of kodekloud/simple-webapp:blue and name the container blue-app, mapping port 8080 on the container to port 38282 on the host
+$ docker run -d  -p 38282:8080 --name blue-app kodekloud/simple-webapp:blue
+
+Docker Images
+==============
+Docker images
+---------------
+Manual Deployment Steps
+1 Operating system
+ ubuntu
+
+2 Update package repos
+ apt update
+
+ 3 Install Flask
+ apt install python3-flask
+
+ 4 Copy source code
+ app.py -> /opt/app.py
+
+ 5. Set environment variable
+ FLASK_APP=/opt/app.py
+
+ 6. Launch web server
+ flask run
+
+ vim Dockerfile
+ FROM ubuntu
+ RUN apt-get update
+ RUN apt-get install -y python3-flask
+ COPY app.py /opt/app.py
+ ENV FLASK_APP=/opt/app.py
+ ENTRYPOINT flask run --host=0.0.0.0
+
+ $ docker build -t mmumshad/my-custom-app .
+
+ $ docker push mmumshad/my-custom-app
+
+ $ docker history mmumshad/my-custom-app
+
+ $ docker build -t mmumshad/my-custom-app .
+
+ vim Dockerfile
+ FROM ubuntu
+ RUN apt-get update
+ RUN apt-get install -y python3-flask
+ COPY app.py /opt/app.py
+ ENV FLASK_APP=/opt/app.py
+ ENTRYPOINT flash run --host=0.0.0.0
+
+ $ docker build -t webapp.
+
+ $ docker images
+
+ $ docker run -p 5000:5000 webapp
+
+Problems with Traditional Docker Builds
+------------------------------------------
+
+ $ docker build --build-arg API_KEY=mysecretkey -t myapp .
+
+ $ docker history --no-trunc myaoo
+ # with this command full command will be visible
+
+ legacy builder - too old
+
+ 1. Packages re-download
+ every build, from scratch
+
+ 2. Secrets leak
+ no matter the workaround
+
+ 3. Architecture lock-in
+ amd64 -- arm64
+
+ 4. sequential stages
+ independent but waiting
+
+Modern Builds with buildkit
+-------------------------------
+01 - Packages re-downloaded on every build
+02 - Secrets leak through every workaround
+03 - Architecture lock-in to your build machine
+04 - Independent stages run sequentially
+
+BuildKit
+--------
+1. content-hashed caching
+2. four new capabilites
+
+$ apt list --installed 2>/dev/null | grep buildx
+
+$ docker build -t web .
+
+$ docker buildx build -t web .
+
+
+# Fix1 - cache mounts
+-----------------------
+vim Dockerfile
+FROM python:3
+RUN --mount=type=cache, target=/root/.cache/pip \
+	pip install flask flask-mysql
+
+COPY app.py /app/
+ENTRYPOINT ["python", "/app/app.py"]
+
+# with using cache while building next image it will get the content from local, rather than going to the internet
+
+$ docker buildx build -t web .
+
+
+# Fix2 - secret mounts
+
+cat ./key.txt
+sk_live_a9f2b8c4e1d6f7a3b8c9d2e5f8a1b4c7
+
+vim Dockerfile
+FROM alpine
+RUN apk add -no-cache curl
+RUN --mount=type=secret, id=mykey \
+	curl -H "Authorization: Bearer $(cat /run/secrets/mykey)" \
+	https://api.example.com/private
+
+
+$ docker buildx build --secret id=mykey, src=./key.txt -t myapp .
+
+$ docker history myapp --no-trunc
+
+$ docker buildx build --platform linux/amd64,linux/arm64 -t mmumshad/my-simple-webapp --push .
+
+# with the above command we are building multple architecture image with single command, in future if anyone pull the image it will fetch respective architecture image only
+
+$ docker pull mmmumshad/my-simple-webapp
+
+
+Fix 4 - parallel stages
+
+vim Dockerfile
+FROM node:20 AS frontend
+COPY frontend/ /src/
+RUN cd /src && npm ci && npm run build
+
+FROM golang:1.22 AS backend
+COPY backend/ /src/
+RUN cd /src && go build -o /out/server ./...
+
+FROM alpine
+COPY --from=frontend /src/dist /app/static
+COPY --from=backend /out/server    /app/
+ENTRYPOINT ["/app/server"]
+
+$ docker buildx build -t app ,
+
+$ docker history app
+
+Docker Init
+--------------
+Docker has a built in scaffolder that does most of the boilerplate for you. It's called Docker init.
+
+Docker init does below things.
+1) When do CD into the project and run Docker init and it walks you through a short interactive prompt. It looks at the files in your project, guesses what language you're using
+2) Package.JSON means node
+requirement.txt means python etc and ask you to confirm
+3) What version of Node do you want to use ? 20
+4) which package manager do you want to use ? npm
+5) what command do you want to use to start the app? node src/index.js
+6) what port does your server listen on ? 3000
+
+you will get four files
+1) Dockerfile
+2) .dockerignore
+3) compose.yml
+4) README.Docker.md
+
+vim Dockerfile
+ARG NODE_VERSION=20
+FROM node:${NODE_VERSION}-alpine AS base
+WORKDIR /usr/src/app
+
+FROM base AS deps
+RUN --mount=type=cache, target=/root/.npm \
+	npm ci --omit=dev
+
+FROM deps AS final
+ENV NODE_ENV=production
+USER node
+COPY . .
+EXPOSE 3000
+CMD ["node", "src/index.js"]
+
+vim .dockerignore
+#Node
+**/node_modules
+**/npm-debug.log
+
+#python
+__pycache__/
+*.pyc
+
+#Rust
+target/
+
+# Common
+**/.git
+**/.env
+LICENSE
+README.md
+
+vim compose.yaml
+services:
+  server:
+    build:
+      context:
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+
+
+ vim README.Docker.md
+ ### Building and running your application
+ When you're ready, start your application by running:
+ `docker compose up --build`.
+
+ your application will be available at 
+ http://localhost:3000
+
+ When to used docker init
+ -----------------------------
+ Use it
+* New project from scratch
+* No Dockerfile template you trust yet
+* want safe defaults - multi-stage, slim, non-root
+
+When to not use docker init
+-----------------------------
+* you already hve a dockerfile that works
+* unusual requirements the templates don't cover
+* Batter to write by hand or copy from a similar project
+
+Lab: Docker Images
+--------------------
+How many images are available on this host?
+$ docker images
+
+What is the size of the ubuntu image?
+$ docker images 
+$ docker image ls
+# check for <CONTENT SIZE>
+
+We just pulled a new image. What is the tag on the newly pulled NGINX image?
+$ docker images
+$ docker image ls
+
+We just downloaded the code of an application. What is the base image used in the Dockerfile?
+Inspect the Dockerfile in the webapp-color directory.
+cat Dockerfile
+FROM python:3.14
+RUN pip install flask
+COPY . /opt/
+EXPOSE 8080
+WORKDIR /opt
+ENTRYPOINT ["python", "app.py"]
+
+python3.14
+
+To what location within the container is the application code copied to during a Docker build?
+Inspect the Dockerfile in the webapp-color directory.
+
+cat Dockerfile
+FROM python:3.14
+RUN pip install flask
+COPY . /opt/
+EXPOSE 8080
+WORKDIR /opt
+ENTRYPOINT ["python", "app.py"]
+
+/opt
+
+Based on the given Dockerfile, which instruction defines the command that starts the application when a container is started?
+Inspect the Dockerfile in the webapp-color directory.
+
+cat Dockerfile
+FROM python:3.14
+RUN pip install flask
+COPY . /opt/
+EXPOSE 8080
+WORKDIR /opt
+ENTRYPOINT ["python", "app.py"]
+
+python app.py
+
+What port is the web application run within the container?
+Inspect the Dockerfile in the webapp-color directory.
+
+A) above file has port 8080 got opened
+
+Build a docker image using the Dockerfile and name it webapp-color. Do not specify a tag.
+$ docker buildx build -t webapp-color .
+
+$ docker images
+
+Run an instance of the image webapp-color and publish port 8080 on the container to 8282 on the host.
+$ docker run -p 8282:8080 webapp-color
+
+Access the application by clicking the HOST:8282 tab above your terminal.
+When you are done, you can stop the running container by pressing CTRL + C.
+
+
+What is the base Operating System used by the python:3.14 image?
+If required, run an instance of the image to figure it out.
+$ docker run python:3.14 cat /etc/*release*
+
+What is the approximate size of the webapp-color image?
+$ docker images
+check <content size> for webapp-color
+
+That's really BIG for a Docker Image!
+Docker images are supposed to be small and light weight. Let us try to trim it down.
+change Dockerfile below from
+
+vim Dockerfile
+FROM python:3.14
+RUN pip install flask
+COPY . /opt/
+EXPOSE 8080
+WORKDIR /opt
+ENTRYPOINT ["python", "app.py"]
 	 
+to 
+
+cat Dockerfile
+FROM python:3.14-alpine
+RUN pip install flask
+COPY . /opt/
+EXPOSE 8080
+WORKDIR /opt
+ENTRYPOINT ["python", "app.py"]
+
+$ docker buildx build -t webapp-color:lite .
+
+Run an instance of the new image webapp-color:lite and publish port 8080 on the container to 8383 on the host.
+$ docker run -p 8383:8080 webapp-color:lite
+
+Commands vs Entrypoint
+
+rebuilding the ubuntu image to run default command example sleep 5 in jason format
+
+Overriding the default command
+--------------------------------
+
+vim Dockerfile.sleeper
+FROM ubuntu
+CMD ["sleep", "5"]
+
+# above is the command where sleep 5 is hard coded
+
+$ docker run ubuntu-sleeper sleep 10
+
+Using ENTRYPOINT with CMD
+-------------------------
+
+vim Dockerfile.sleeper-v2
+FROM ubuntu
+ENTRYPOINT ["sleep"]
+
+This is argument where you can pass sleep duration at the execution or starting of the image
+
+$ docker run ubuntu-sleeper 10
+
+   sleep       10
+<ENTRYPOINT>  <CMD>
+
+ENTERYPOINT + CMD Together, Then Override
+-------------------------------------------
+$ vim Dockerfile.sleeper-v3
+FROM ubuntu
+ENTERYPOINT ["sleep"]
+CMD ["5"]
+
+Here if nothing is passed as an argument will use 5 as a argument, if argument is passed it will be used
+
+$ docker run ubuntu-sleeper 10
+# here the sleep time will be 10 sec
+
+    sleep      10
+ <ENTRYPOINT> <CMD>
+
+# docker run ubuntu-sleeper
+# here the sleep time will be 5 sec which uses CMD 5
+ 
+   sleep        5
+ <ENTRYPOINT>  <CMD>
+
+
+Modify ENTRYPOINT at run time
+
+$ docker run --entrypoint sleep2.0 ubuntu-sleeper 10
+This command will over ride
+
+   sleep2,0    10
+ <ENTRYPOINT> <CMD>
+
+
+Lab: Command & Entrypoint
+--------------------------
+What is the ENTRYPOINT configured on the mysql image Dockerfile?
+cat Dockerfile-mysql
+ENTRYPOINT ["docker-entrypoint.sh"]
+docker-entrypoint.sh
+
+What is the CMD configured on the wordpress image?
+cat Dockerfile-wordpress
+CMD ["apache2-foreground"]
+apache2-foreground
+
+What is the final command run at startup when the wordpress image is run?
+Consider both ENTRYPOINT and CMD instructions.
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["apache2-foreground"]
+
+docker-entrypoint.sh apache2-foreground
+
+Which command runs at startup when the ubuntu image starts?
+CMD ["bash"]
+
+bash
+
+Run an instance of the ubuntu image that executes the sleep 1000 command at startup.
+Note: Run it in detached mode.
+
+$ docker run -d ubuntu:latest sleep 1000
+
+Environment Variables
+-----------------------
+Read from the Environment
+
+vim app.py
+import os
+from flask import Flask, render_template
+
+app = Flask(__name__)
+color = "red"
+
+@app.route("/")
+def main()
+    print(color)
+    return red_template('hello.html', color=color)
+
+ 
+ if __name__ = "__main__":
+     app.run(host="0.0.0.0", port="8080")
+
+
+  $ export APP_COLOR=blue; python app.py
+
+  Docker -- The -e Flag
+
+ $ docker run simple-webapp-color
+ $ docker run -e APP_COLOR=blue simple-webapp-color
+ $ docker run -e APP_COLOR=green simple-webapp-color
+  
+ To find the variable in already running docker continer use "inspect" command
+
+ $ docker inspect blissful_hopper
+
+ Lab: Environemnt Variables
+ ---------------------------
+ Inspect the environment variables set on the running container and identify the value set to the APP_COLOR variable.
+ $ docker ps
+ $ docker inspect boring_ishizaka
+
+ Run a container named blue-app using image kodekloud/simple-webapp and set the environment variable APP_COLOR to blue. Make the application available on port 38282 on the host. The application listens on port 8080.
+ $ docker run -d -p 38282:8080 -e APP_COLOR=blue --name blue-app kodekloud/simple-webapp
+
+Deploy a mysql database using the mysql image and name it mysql-db.
+Set the database password to db_pass123.
+Look up the mysql image on Docker Hub and identify the correct environment variable for setting the root password.
+
+$ docker run --name mysql-db -e MYSQL_ROOT_PASSWORD=db_pass123 -p 3306:3306 -d mysql
+
+
+Docker Compose
+===============
+Docker Compose
+----------------
+1) If we need to setup a complex application running multiple services, a better way to do it is to use Docker Compose
+2) Docker Compose. we could create a configuration file in YAML format called Docker Compose.yaml and put together the different service and the options specific to this to running them in this file. Then we could simply run a Docker Compose up command to bring up the entire application stack. And its easy to implement run, and maintain, as all Compose configuration file.
+
+vim compose.yaml
+services:
+  web:
+    image: "mmumshad/simple-webapp"
+  database:
+    image: 'mongodb"
+  messaging:
+    image: "redis:alpine"
+  orchestration:
+    image: "ansible"
+
+ 
+ $ docker compose up
+
+ legacy command
+ $ docker-compose (which has ended life)
+ $ docker compose (new one which is in current use)
+
+ Deploying with Docker run
+ ---------------------------
+ $ docker run -d --name redis redis:7-alpine
+ $ docker run -d --name vote voting-app
+ $ docker run -d --name worker worker
+ $ docker run -d --name result result-app
+ $ docekr run -d --name db postgres:16
+
+ rather than running container differently let run in a single fil called compose.yaml
+
+ # vim compose.yaml
+services:
+  web:
+    image: "mmumshad/simple-webapp"
+  database:
+    image: "mongodb"
+  messaging:
+    image: "redis:alpine"
+  orchestration:
+    image: "ansible"
+
+
+ $ docker compose up
+
+ Deploying with Docker Run
+ ----------------------------
+ $ docker run -d --name=redis redis
+ $ docker run -d --name=db postgres:14
+ $ docker run -d --name=vote -p 5000:80 voting-app
+ $ docker run -d --name=result -p 5001:80 result-app
+ $ docker run -d --name=worker worker
+
+ Here we have run the contianer but we didn't link together we haven't told voting webapp to use redis instance or db instance
+ same with result app to use particular postgres database
+
+ $ docker run -d --name=vote --link=redis -p 5000:80 voting-app
+ $ docker run -d --name=result --link=db -p 5001:80 result-app
+ $ docker run -d --name=worker --link=redis --link=db redis
+ $ docker network create vote-net
+
+ Transition to Compose
+ $ docker network create vote-net
+ $ docker run -d --name=redis --network=vote-net redis
+ $ docker run -d --name=db --network=vote-net postgres:14
+ $ docker run -d --name=vote --network=vote-net -p 5000:80 voting-app
+ $ docker run -d --name=result --network=vote-net -p 5001:80 result-app
+ $ docker run -d --name=worker --network=vote-net worker
+
+
+ vim compose.yaml
+ service:
+   redis:
+     image: redis
+   db:
+     image: postgres:14
+   vote:
+     image: voting-app
+     ports:
+       - 5000:80
+   result:
+     image: result-app
+     ports:
+       - 5001:80
+   worker:
+     image: worker
+
+$ docker compose up
+
+rather than pulling the image if you want to build
+
+services:
+  redis:
+    image: redis
+  db:
+    image: postgres:14
+  vote:
+    build: ./vote
+    ports:
+      - 5000:80
+  result:
+    build: ./result	
+    ports:
+      - 5001:80
+  worker:
+    build: ./worker
+
+ $ docker compose up
+
+ Different version of the compose file
+ v1, v2, v3, spec
+
+ version1 example
+
+ redis:
+   image: redis
+ db:
+   image: postgres:9.4
+ vote:
+   image: voting-app
+   ports:
+     - 5000:80
+   links:
+     - redis
+
+ version2 example
+
+ version: 2
+ services:
+   redis:
+     image: redis
+   db:
+     image: postgres:9.4
+   vote:
+     image: voting-app
+     ports:
+       - 5000:80
+     depends_on:
+       - redis
+
+  version3 example
+
+version: 3
+services:
+  redis:
+    image: redis
+  db:
+    image: postgres:9.4
+  vote:
+    image: voting-app
+    ports:
+      - 5000:80
+    deploy:
+      replica: 2
+
+ 
+ services:
+   redis:
+     image: redis
+   db:
+     image: postgres:9.4
+   vote:
+     image: voting-app
+     ports:
+       - 5000:80
+     depends_on:
+       - redis
+
+  Current-version
+
+
+Custom Networks for Isolation like front-end for vote, result and back-end for redis, db
+
+vim compose,yaml
+services:
+  redis:
+    image: redis
+    networks: [back-end]
+  db:
+    image: postgres:14
+    networks: [back-end]
+  vote:
+    image: voting-app
+    ports: ["5000:80"]
+    networks: [front-end, back-end]
+  result:
+    image: result-app
+    ports: ["5001:80"]
+    networks: [font-end, back-end]
+  worker:
+    image: worker
+    networks: [back-end]
+ networks:
+   front-end:
+   back-end:
+ 
+
+Demo: Example Voting Application
+----------------------------------
+vim docker-compose-simple.yaml
+services:
+  vote:
+    image: vote
+    ports:
+      - "8080:80:
+  result:
+    image: result
+    ports:
+      - "8081:80"
+   worker:
+     image: worker
+   redis:
+     image: redis:alpine
+   db:
+     image: postgres:15-alpine
+     environment:
+       POSTGRES_USER: postgres
+       POSTGRES_PASSWORD: postgres
+     volumes:
+       - db-data:/var/lib/postgresql/data
+
+ volumes:
+   db-data:
+
+
+$ docker compose -f docker-compose-simple.yaml up
+$ docker compose -f docker-compose-simple.yaml down
+
+vim docker-compose-simple.yaml
+services:
+  vote:
+    build: ./vote
+    ports:
+      - "8080:80:
+  result:
+    build: ./result
+    ports:
+      - "8081:80"
+   worker:
+     build: ./worker
+   redis:
+     image: redis:alpine
+   db:
+     image: postgres:15-alpine
+     environment:
+       POSTGRES_USER: postgres
+       POSTGRES_PASSWORD: postgres
+     volumes:
+       - db-data:/var/lib/postgresql/data
+
+ volumes:
+   db-data:
+
+$ docker compose up -f docker-compose-simple.yml 
+$ docker compose down -f docker-compose-simple.yml
+
+
+Lab: Docker Compose
+---------------------
+First, create a Docker network named clicknet. This should be a bridge network.
+$ docker network create clicknet
+
+Create a redis database container named redis using the image redis:alpine, running in the background.
+Attach it to the clicknet Docker network that you created in the previous task.
+
+$ docker run -d --network=clicknet --name redis redis:alpine
+$ docker ps 
+
+Next, create a simple container named clickcounter using the image kodekloud/click-counter, attach it to the clickcounter network from the earlier task, and then expose it on host port 8085.
+The clickcounter app runs on port 5000.
+$ docker run -d -p 8085:5000 --network clicknet --name clickcounter kodekloud/click-counter
+$ docker ps
+
+Let's clean up the resources created in the previous steps.
+Delete the redis and clickcounter containers, alongwith the clicknet network you had created.
+$ docker ps
+$ docker stop ff847
+$ docker stop a2530
+$ docker ps -a
+$ docker rm a2530b301ef5
+$ docker rm ff847b0ec53e
+$ docker ps -a
+$ docker network rm clicknet
+
+
+Create a compose.yaml file in the /root/clickcounter directory. Once done, bring up the stack using Docker Compose.
+The compose file should have the following exact specification:
+redis service - Use redis:alpine image name
+clickcounter service - Use the kodekloud/click-counter image name; the app runs on port 5000 and should be exposed on host port 8085
+
+cat compose.yaml
+services:
+  redis:
+    image: redis:alpine
+  clickcounter:
+    image: kodekloud/click-counter
+    ports:
+      - 8085:5000
+
+$ docker compose -f compose.yaml up
+
+[+] up 3/3
+ ✔ Network clickcounter_default          Created                                                                            0.1s
+ ✔ Container clickcounter-redis-1        Created                                                                            0.1s
+ ✔ Container clickcounter-clickcounter-1 Created                                                                            0.1s
+
+# you can observe that new network "clickcounter_default" was created automatically
+
+
+
+Resource
+-----------
+https://docs.docker.com/compose/
+https://docs.docker.com/engine/reference/commandline/compose/
+https://github.com/dockersamples/example-voting-app        
+
+
+Docker Engine, Storage
+========================
+need to start
+
+
+
+
+
+
+
+
+
+
