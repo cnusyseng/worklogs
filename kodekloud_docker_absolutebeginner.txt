@@ -1,0 +1,245 @@
+Chapter 1 - Introdcution
+==========================
+Demo: Setup and Install Docker
+------------------------------
+Installation of docker on Ubuntu VM
+
+
+cat /etc/*release*
+
+dpkg --print-architecture
+
+* Removing old version of docker if they are already installed on the system
+
+sudo apt remove $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
+
+# Add Docker's official GPG key:
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+sudo systemctl status docker
+
+sudo systemctl start docker
+
+sudo docker run hello-world
+
+Chapter 2 - Docker commands
+===========================
+Basic Docker commands
+----------------------
+$ docker run nginx
+Above command will run the image on the machine. If it didn't find image on the machine, it will got out and will fetch the image from the machine.
+
+Heads-up - Docker Hub Rate Limits
+
+Anonymouse - No Docker login - 1000 pulls / 6hrs per ip address
+Free - After Docker login - 200 pulls /6hrs per account
+Paid - unlimited
+
+$ docker ps
+CONTAINER ID	IMAGE	COMMAND			CREATED		STATUS		PORTS	NAMES
+796856ac413d	nginx	"nginx -g 'demon of..' 	7 seconds ago	up 6 seconds	80/tcp	silly_sammet
+
+# above command will display running containers
+
+$ docker ps -a
+# will display all the container which are running as well as non running containers
+
+$ docker stop < container id/container name >
+# above command will stop the cotnainer
+
+$ docker ps -a
+# to verify the continner running status
+
+$ docker rm silly_sammet
+
+$ docker images
+# above command will list all the images available locally
+
+$ docker rmi nginx
+# above command will delete the image locally, but before running this command you have to all the running container with this image
+
+$ docker pull ubuntu
+# this command will download the image locally and won't run it
+
+$ docker run ubuntu
+# when you run the docker run ubuntu command. It runs a instance of the ubuntu image and exits immediately. if you were to list the running containers, you wouldn't see the continer running.
+# If you list all containers, including those that are stopped, yu will see that the new container you ran is an existed state.
+# now why is that? unlike virtual machines, containers are not menat to host an operating system. Containers are menat to run a specific task or process, such as webapp, task.
+
+$ docker run ubuntu sleep 5
+# this container will run for 5 sec as it has the task of "sleep 5 sec"
+
+$ docker exec 538d cat /etc/hosts
+# this command will list containt of the /etc/hosts file
+
+$ docker run kodekloud/simple-webapp
+# this above command will run the container and terminal is locked with the container
+
+
+$ docker run -d kodekloud/simple-webapp	
+# this command will run the command in detached mode and once the container run, it will get disconnected from the container
+
+$ docker ps
+
+$ docker attach a043d
+# this will re-attache to the container output
+
+
+Demo: Docker Commands - Part 1
+-------------------------------------
+$ docker run alphine cat /etc/hosts
+
+$ docker run alphine sleep 100
+
+$ docker run nginx
+
+$
+
+Demo: Docker Commands - Part 2 
+--------------------------------
+$ docker run nginx
+
+$ docker run -d nginx
+
+$ docker ps
+
+$ docker stop dbb4
+
+$ docker ps -a
+
+$ docker rm dbb4
+
+$ docker rm dbb4 af6a c16f 2e0e
+
+Demo: Docker commands - Part 3
+-------------------------------
+$ docker images
+
+$ docker rmi alphine:latest
+$ docker ps -a
+$ ocker rm 292e
+$ docker ps -a
+$ docker rmi nginx:latest
+
+$ docker system prune
+WARNING! This will remove:
+ - all stopeed containers
+ - all networks not used by at least one container
+ - all dangling images
+ - unused build cache
+
+ Are you sure you want to continue ? [Y/N]
+
+
+Lab: Basic Docker commands
+------------------------------
+What is the version of Docker Server Engine running on the Host?
+$ docker --version
+
+How many containers are running on this host?
+$ docker ps
+
+How many images are available on this host?
+$ docker images
+
+Run a container using the redis image
+NOTE: Run the container in detached mode if you don't want the container to take over your current terminal. This allows your terminal to remain free for other commands, or you can open a new terminal to run the command.
+$ docker container run -d redis
+
+Stop the container you just created!
+$ docker container stop 207a37
+
+How many containers are RUNNING on this host now?
+$ docker ps
+
+How many containers are RUNNING on this host now?
+We just created a few.
+$ docker ps
+
+How many containers are PRESENT on the host now?
+Include both Running and Not Running ones.
+$ docker ps -a
+$ docker container ls
+
+What is the image used to run the nginx-1 container?
+$ docker ps
+$ docker container ls
+
+What is the name of the container created using the ubuntu image?
+$ docker container ls
+$ docker ps
+
+What is the ID of the container that uses the alpine image and is not running?
+$ docker ps -a |grep alpine
+
+What is the state of the stopped alpine container?
+$ docker ps -a |grep alpine
+
+Delete all containers from the Docker Host (both running and not running ones).
+Remember you may have to stop containers before deleting them.
+$ docker ps
+$ docker stop $(docker ps -aq)
+$ docker rm $(docker container ls -aq)
+$ docker images
+
+Delete the ubuntu image.
+$ docker rmi ubuntu
+$ docker image rm ubuntu
+
+$ docker images
+
+You are required to pull a docker image, which will be used to run a container later. Pull the image nginx:1.28-alpine.
+Only pull the image, do not create a container.
+$ docker pull nginx:1.28-alpine
+$ docker images
+
+Run a container using the image name nginx:1.28-alpine (not the image ID) and name it webapp
+$ docker run -d --name webapp nginx:1.28-alpine
+$ docker ps
+
+Cleanup: Delete all images on the host.
+Remove containers as necessary.
+$ docker ps
+$ docker ps -a
+$ docker rm b8b7d1960184
+$ docker ps -a
+$ docker rmi alpine:latest kodekloud/latest-webapp-mysql:latest kodekloud/simple-webapp:latest mysql:latest nginx:1.28-alpine nginx:alpine nginx:latest postgres:latest redis:latest
+$ docker container stop $(docker container ls -q)
+$ docker container rm $(docker container ls -aq)
+$ docker image rm $(docker image ls -aq)
+(or)
+$ docker rmi $(docker images -aq)
+
+$ docker images
+
+Chapter 3 Docker Run commands
+==============================
+Image Tages
+------------
+need to start
+
+
+
+
+
+
+
+	 
