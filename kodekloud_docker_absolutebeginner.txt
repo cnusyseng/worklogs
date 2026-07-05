@@ -431,7 +431,7 @@ $ docker buildx build -t web .
 # Fix2 - secret mounts
 
 cat ./key.txt
-sk_live_a9f2b8c4e1d6f7a3b8c9d2e5f8a1b4c7
+#sk_live_a9f2b8c4e1d6f7a3b8c9d2e5f8a1b4c7
 
 vim Dockerfile
 FROM alpine
