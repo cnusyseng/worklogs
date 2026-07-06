@@ -1122,13 +1122,392 @@ https://github.com/dockersamples/example-voting-app
 
 Docker Engine, Storage
 ========================
-need to start
+Docker engine is the host which installed docker on it. 
+1) dockerd (Daemon) manages <images> <containers> <volumnes> <networks> 
+2) REST API (Server) manages <programs> <tools> <integrations>
+3) docker (CLI) <docker run> <docker stop> <docker rmi>
+
+Remote Docker Engine
+--------------------
+$ docker -H=10.123.2.1:2376 --tlsverify run nginx
+
+ Underneath the daemon
+ --------------------------
+ 1) docker <CLI> => 
+ 2) dockerd <Daemon> => Docker-specific work <images> <containers> <volumnes> <networks> <Docker Hub actions> <REST API>
+ 3) containerd <Runtime>  => General cotnainer runtime <pull images> <lifecycle> <supervise>
+ 4) runc <OCI> => Low-level launcher <linux kernel> <namepaces> <cgroups> <exec process>
+
+ Namespaces
+ -----------
+ Docker uses Namespace to isolate below things
+ 1) PID <process IDs>
+ 2) Network <interfaces> <routing> <firewall>
+ 3) IPC <shared memory> <semaphores>
+ 4) Mount <filesystem> <mounts>
+ 5) UTS <hostname> <domain>
+ 6) User <user/group IDs>
+
+ cgroups (control groups)
+ -------------------------
+ cgroups. resource limits
+
+control group will restric the resource like CPU, Memory 
+
+$ docker run --cpus=0.5 ubuntu
+# uses cpu resources to 50%
+
+$ docker run --memory=100m ubuntu
+# uses memory resources to 100MB
+
+Docker Storage
+--------------
+Where Docker Stores Files
+
+ /var/lib/docker/
+ 1) containers/ <runtime state for each container>
+ 2) image/ <image metadata + layer index
+ 3) volumes/ <named-volume storage>
+ 4) overlay2/ <the layered filesystem>
+
+ Layered Architecture
+ ---------------------
+ vim Dockerfile					IMAGE LAYERS
+ FROM Ubuntu                    		1. Base Ubuntu Layer         - 120 MB
+ RUN apt-get update && install python3		2. Changes in apt packages   - 306 MB
+ RUN pip3 install flask				3. changes in pip packages   - 6 MB
+ COPY . /opt/source-code			4. Source code               - 229 B
+ ENTRYPOINT ["flask", "run"]			5. Entrypoint		     - 0 B 	
+
+ $ docker build -t mmumshad/my-custom-app .
+
+Layer Reuse
+-----------
+if you build another docker image, it uses same image layer for same functionality
+
+vim Dockerfile2					IMAGE LAYERS
+FROM Ubuntu					1. Base Ubuntu Layer	     	- 0 MB
+RUN apt-get update && install python3		2. Changes in apt packages	- 0 MB
+RUN pip3 install flask				3. Changes in pip packages	- 0 MB
+copy app2.py /opt/source-code			4. Source code			- 229 B
+ENTRYPOINT ["flask", "run"]			5. Entrypoint 			- 0 B
+
+for the above image till stage 3 it use old layered image from cache and builds with stage 4,5
+
+$ docker build -t mmumshad/my-custom-app-2 -f Dockerfile .
+$ docker run -it mmumshad/my-custom-app              <container layer> where you data gets added
+
+To store you data persistently use Persistent volumes
+
+volume mount
+-------------
+$ docker volume create datavolume
+it create a volume folder under /var/lib/docker/volumes/datavolume      <volumes/datavolume> folder get created
+
+$ docker run -v datavolume:/var/lib/mysql mysql
+
+Above is called volume mount
+
+Bind mount
+-----------
+$ docker run -v /data/mysql:/var/lib/mysql mysql
+
+$ docker run --mount type=bind, source=/data/mysql, target=/var/lib/mysql mysql
+
+storage driver
+1) manage <file system>
+2) create <writable layer
+3) implement <copy-on-write>
+
+On modern linux host classic storage drivers are 
+overlay2
+btrfs
+zfs
+fuse-overlayfs
+vfs
+
+Lab: Docker storage
+----------------------
+Where are the files related to Docker containers and images stored? 
+/var/lib/docker
+
+Under which directory in /var/lib/docker/containers are the files related to the alpine-3 container image stored?
+$ docker images
+$ docker ps
+$ docker ps -a
+
+Run a mysql container named mysql-db using the mysql image.
+Set the database password to db_pass123
+Note: Remember to run it in the detached mode.
+
+$ docker run -d -e MYSQL_ROOT_PASSWORD=db_pass123 --name mysql-db mysql
+$ docker ps
+
+We have just written some data into the database container.
+To view the information we wrote, run the get-data.sh script available in the /root directory.
+How many customers data have been written to the database?
+Command: bash get-data.sh
+bash /root/get-data.sh
+
+cat get-data.sh
+docker exec mysql-db mysql -pdb_pass123 -e 'use foo; select * from myTable'
+
+Run a mysql container again, but this time map a volume to the container so that the data stored by the container is stored at /opt/data on the host.
+Use the same name : mysql-db and same password: db_pass123 as before.
+Note: Mysql stores data at /var/lib/mysql inside the container.
+mkdir -p /opt/data
+docker run \
+  --mount type=bind,source=/opt/data,target=/var/lib/mysql \
+  -d \
+  --name mysql-db \
+  -e MYSQL_ROOT_PASSWORD=db_pass123 \
+  mysql
+
+(or)
+docker run -v /opt/data:/var/lib/mysql -d --name mysql-db -e MYSQL_ROOT_PASSWORD=db_pass123 mysql
+
+Disaster strikes.. again! And the database crashed again. But this time we have the data stored at /opt/data directory. Re-deploy a new mysql instance using the same options as before:
+   Name: mysql-db
+    MYSQL_ROOT_PASSWORD: db_pass123
+    Image: mysql
+    Volume mapping: /opt/data on host to /var/lib/mysql on container
+
+$ docker run -v /opt/data:/var/lib/mysql -d --name mysql-db -e MYSQL_ROOT_PASSWORD=db_pass123 mysql
+
+Docker Networking
+==================
+Docker networking
+-------------------
+1) bridge
+$ docker run ubuntu
+
+2) none
+$ docker run ubuntu --network=none
+
+3) host
+$ docker run ubuntu --network=host
+
+	
+To create a additional bridge drive
+$ docker network create --driver bridge --subnet 182.18.0.0/16 custom-isolated-network
+
+$ docker network ls
+$ docker inspect <container id or container name>
+
+$ docker network create --drive bridge my-app
+$ docker run -d --name=mysql --network=my-app mysql
+$ docker run -d --name=web --network=my-app my-webapp
+
+Network Namespaces
+-------------------
+use separate namespace for network
+
+Explore the current setup and identify the number of networks that exist on this system.
+$ docker network ls
+
+What is the ID associated with the bridge network?
+$ docker network ls
+
+We just ran a container named alpine-1. Identify the network it is attached to.
+$ docker inspect d6b7820601fa
+
+What is the subnet configured on the bridge network?
+$ docker inspect bridge
+
+Run a container named alpine-2 using the alpine image and attach it to the none network.
+$ docker run -d --network=none --name=alpine-2 alpine
+
+Create a new network named wp-mysql-network using the bridge driver. Allocate subnet as 182.18.0.0/24 and configure gateway as 182.18.0.1
+$ docker network create --driver bridge --subnet 182.18.0.0/24 --gateway 182.18.0.1 wp-mysql-network
+
+$ docker network inspect wp-mysql-network
+
+Deploy a mysql database using the mysql:8.4 image and name it mysql-db. Attach it to the newly created network wp-mysql-network.
+Set the database password to db_pass123 using the MYSQL_ROOT_PASSWORD environment variable.
+$ docker run --network=wp-mysql-network -d --name mysql-db -e MYSQL_ROOT_PASSWORD=db_pass123 mysql:8.4
+
+Deploy a web application named webapp using the kodekloud/latest-webapp-mysql image.
+Expose the container’s port 8080 to port 38080 on the host.
+The application makes use of two environment variable:
+    DB_Host with the value mysql-db
+    DB_Password with the value db_pass123
+Make sure to attach it to the newly created network called wp-mysql-network.
+Note: We need to link the MySQL and webapp containers.
+$ docker run -p 38080:8080 -e DB_HOST=mysql-db -e DB_Password=db_pass123 -d --name=web-app kodekloud/latest-webapp-mysql
+# here we are link db with webapp with variable
+$ docker container run --network=wp-mysql-network -e DB_Host=mysql-db -e DB_Password=db_pass123 -p 38080:8080 --name webapp -d kodekloud/latest-webapp-mysql
+$ docker run -p 38080:8080 -e DB_HOST=mysql-db -e DB_Password=db_pass123 --network=wp-mysql-network -d --name=web-app kodekloud/latest-webapp-mysql
+
+Docker Registry
+===============
+Docker Registry
+---------------
+$ docker login
+$ docker login private-registry.io
+
+$ docker run -d -p 5000:5000 --name registry registry:2
+# running a local docker registry
+
+$ docker image tag my-image localhost:5000/my-image
+# tagging the image 
+
+$ docker push localhost:5000/my-image
+# pushing local image to docker registry
+
+$ docker pull localhost:5000/my-image
+
+$ docker pull 192.168.56.100:5000/my-image
+
+Lab: Docker Registry
+---------------------
+What is a Docker Registry?
+A Service that store and distributes container images
+
+By default, the Docker engine interacts with ?
+DockerHub
+
+DockerHub is a hosted registry solution by Docker Inc.
+Besides public and private repositories, it also provides:
+    * Automated image builds
+    * Integration with source control platforms like:
+        * GitHub
+        * Bitbucket
+    * Webhooks
+    * Image versioning and tagging
+    * Team collaboration and access control
+    * Vulnerability scanning (on some plans)
+
+Which command is used for login to a self-hosted registry?
+docker login [SERVER]
+
+Let's practice deploying a registry server on our own.
+Run a registry server with name equals to my-registry using registry:2 image with host port set to 5000, and restart policy set to always.
+Note: Registry server is exposed on port 5000 in the image.
+Here we are hosting our own registry using the open source Docker Registry.
+NOTE: You do not need to run docker login for this local registry setup because authentication is not configured. This registry allows for anonymous access.
+$ docker run -d -p 5000:5000 --restart=always --name=my-registry registry:2
+
+Now, it's time to push some images to our registry server. Let's push two images for now: nginx:latest and httpd:latest.
+Note: Don't forget to pull them first.
+
+$ docker image pull nginx:latest
+$ docker image tag nginx:latest localhost:5000/nginx:latest
+$ docker image push localhost:5000/nginx:latest
+$ docker image pull httpd:latest
+$ docker image tag httpd:latest localhost:5000/httpd:latest
+$ docker image push localhost:5000/httpd:latest
+
+To check the list of images pushed, use the following command:
+$ curl localhost:5000/v2/_catalog
+
+Let's remove all the dangling images we have locally.
+Use prune to remove them.
+How many images do we have now?
+Note: Make sure we don't have any running containers except our registry-sever.
+$ docker container prune
 
 
+Now, we can pull images from our registry-server as well. Use docker pull [server-addr/image-name] to pull the images that we pushed earlier.
+In our case, we can use:
+$ docker pull localhost:5000/nginx
 
+Finally, let's clean up our registry.
+Stop and remove the my-registry container.
+$ docker stop 3c4eaa
+$ docker rm 3c4eaa
 
+Docker on Mac & Windows
+==========================
+Docker on Windows
+------------------
+WSL 2
 
+Container Orachestration - Docker
+=================================
+Container Orchestration
+-----------------------
+with docker swarm
+$ docker service create --replica=100 nodejs
+Docker Swarm
+------------
+* Really easy to set up
+* Lacks advanced auto-scaling
+* Not ideal for production-grade apps
 
+Kubernetes
+------------
+* More popular of the two
+* Highly customizable deployments
+* Many vendors
+
+Docker swarm
+---------------
+On Docker Swarm manager
+$ docker swarm init
+
+On Docker Swarm worker
+worker1
+$ docker swarm join
+
+worker2
+$ docker swarm join
+
+worker3
+$ docker swarm join
+
+ON Docker Manager
+-----------------
+$ docker swarm init --advertise-addr 192.168.1.12
+
+you will get the output similar to 
+  
+   docker swarm join --token <token number> 192.168.1.12:2377
+
+# run docker swarm join on all worker nodes
+
+On Docker Manager
+-----------------
+$ docker service create --replicas=3 my-web-server
+
+$ docker service create -e MODE=prod -p 80:80 --network web --replicas=3 my-web-server
+
+Kubernetes Introduction
+-----------------------
+Running container on localnode
+# docker run my-web-server
+
+Running container on kubernetes
+$ kubectl create deployment my-web-server --image=my-web-serer --replicas=1000
+ 
+kubenetes can scale upto 2000 containers
+
+Kubernetes Control Plane components
+------------------------------------
+1) api-server
+   front end all requests
+   <users>
+   <mgmt devices>
+   <command-line>
+
+2) etcd
+   key-value store
+   pods: ...
+   nodes: ...
+   services: ...
+
+ 3) scheduler
+    places pods on nodes
+    watches for new pods, assings them to nodes.
+
+ 4) controllers
+    watch + reconcile
+    watch nodes, pods, endpoints.
+    Bring up replacements when something goes down.
+
+ $ kubectl cluster-info
+ $ kubectl get nodes
+ $ kubectl get gods
+ $ kubectl create deployment my-web-app --image=my-web-app --replicas=100
 
 
 
