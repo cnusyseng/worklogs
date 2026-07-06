@@ -1509,6 +1509,242 @@ Kubernetes Control Plane components
  $ kubectl get gods
  $ kubectl create deployment my-web-app --image=my-web-app --replicas=100
 
+Conclusion
+==========
+Bonus Lecture: Introduction to YAML
+------------------------------------
+
+vim data.yaml
+Servers:
+  - name: Server1
+    owner: John
+
+Key-value Pairs
+---------------
+
+vim firdge.yaml
+Fruit: Apple
+Vegetalbe: Carrot
+Liquid: Water
+Meat: Chicken
 
 
+Vim grocery.yaml
+Fruits:
+  - Orange
+  - Apple
+  - Banana
 
+Vegetables:
+  - Carrot
+  - Cauliflower
+  - Tomato
+
+
+vim fruits.yaml
+Banana:
+  Calories: 105
+  Fat: 0.4 g
+  Carbs: 27 g
+
+Grapes:
+  Calories: 62
+  Fat: 0.3 g
+  Carbs: 16 g
+
+vim fruits2.yaml
+Fruits:
+  - Banana:
+      Calories: 105
+      Fat: 0.4 g
+      Carbs: 27 g
+
+  - Grapes:
+      Calories: 62
+      Fat: 0.3 g
+      Carbs: 16 g
+
+vim car.yaml
+
+Color: Blue
+Model: Corvette
+Transmission: Manual
+Price: $20,000
+
+vim car.yaml
+
+color: Blue
+Model:
+  Name: Corvette
+  Year: 1995
+Transmission: Manual
+Price: $20,000
+
+
+vim cars.yaml
+
+- color: Blue
+  Model:
+    Name: Corvette
+    Year: 1995
+  Transmission: Manual
+  Price: $20,000
+- color: Grey
+  Model:
+    Name: Corvette
+    Year: 1995
+  Transmission: Manual
+  Price: $22,000
+- color: Red
+  Model:
+    Name: Corvette
+    Year: 1995
+  Transmission: Manual
+  Price: $24,000
+
+
+Lab: YAML
+--------------
+Which of the following statements is true?
+Dictionary is an unordered collection whereas list is an ordered collection.
+
+There is a yaml file named practice.yaml under /home/bob/playbooks/ directory with a key property1 and value value1.
+Add an additional key named property2 and value value2.
+[bob@student-node playbooks]$ cat practice.yaml
+property1: value1
+property2: value2
+
+We have updated the /home/bob/playbooks/practice.yaml file with the key name and value apple. Add some additional properties (given below) to the dictionary.
+name= apple
+color= red
+weight= 90g
+[bob@student-node playbooks]$ cat practice.yaml
+name: apple
+color: red
+weight: 90g
+
+
+We have updated the /home/bob/playbooks/practice.yaml file with a dictionary named employee. Add the remaining properties to it using information from the table below.
+
+Key/Property 	Value
+name 		ohn
+gender 		male
+age 		24
+
+[bob@student-node playbooks]$ cat practice.yaml
+employee:
+  name: john
+  gender: male
+  age: 24
+
+Now, update the /home/bob/playbooks/practice.yaml file with a dictionary in dictionary.
+Add a dictionary named address to add the address information in this file.
+
+Key/Property 	Value
+city 		edison
+state 		new jersey
+country 	united states
+
+[bob@student-node playbooks]$ cat practice.yaml 
+employee:
+  name: john
+  gender: male
+  age: 24
+  address:
+    city: edison
+    state: new jersey
+    country: united states
+
+We have updated the /home/bob/playbooks/practice.yaml file with an array of apples. Add a new apple to the list to make it a total of 4.
+[bob@student-node playbooks]$ cat practice.yaml
+- apple
+- apple
+- apple
+- apple
+
+In /home/bob/playbooks/practice.yaml, add two more values apple to make it 6.
+[bob@student-node playbooks]$ cat practice.yaml
+- apple
+- apple
+- apple
+- apple
+- apple
+- apple
+
+We have updated the /home/bob/playbooks/practice.yaml file with some data for apple, orange and mango. Just like apple, we would like to add additional details for each item, such as color, weight etc. Modify the remaining items to match the below data.
+
+orange
+color 	weight
+orange 	90g
+
+mango
+color 	weight
+yellow 	150g
+
+[bob@student-node playbooks]$ cat practice.yaml
+- name: apple
+  color: red
+  weight: 100g
+- name: orange
+  color: orange
+  weight: 90g
+- name: mango
+  color: yellow
+  weight: 150g
+
+We have updated the /home/bob/playbooks/practice.yaml file with a dictionary named employee. We would like to record information about multiple employees. Convert the dictionary named employee to an array named employees.
+Before
+[bob@student-node playbooks]$ cat practice.yaml
+employee:
+  name: john
+  gender: male
+  age: 24
+
+After
+[bob@student-node playbooks]$ cat practice.yaml
+employees:
+  - name: john
+    gender: male
+    age: 24
+
+Update the /home/bob/playbooks/practice.yaml file to add an additional employee (below the existing entry) to the list using the below information.
+
+Key/Property 	Value
+name 	sarah
+gender 	female
+age 	28
+
+[bob@student-node playbooks]$ cat practice.yaml
+employees:
+  - name: john
+    gender: male
+    age: 24
+  - name: sarah
+    gender: female
+    age: 28
+
+We have updated the /home/bob/playbooks/practice.yaml file to add some more details. Now add the employee payslip information by adding an array called payslips. Remember, while address is a dictionary, payslips is an array of month and amount.
+payslips
+month 	amount
+june 	1400
+july 	2400
+august 	3400
+
+[bob@student-node playbooks]$ cat practice.yaml 
+employee:
+  name: john
+  gender: male
+  age: 24
+  address:
+    city: 'edison'
+    state: 'new jersey'
+    country: 'united states'
+  payslips:
+    - month: june
+      amount: 1400
+    - month: july
+      amount: 2400
+    - month: august
+      amount: 3400
+
+ 
